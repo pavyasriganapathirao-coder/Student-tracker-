@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { UserSettings, Expense } from '../types';
 import { formatCurrency } from '../utils/formatters';
+import { DEFAULT_N8N_WEBHOOK_URL } from '../utils/storage';
 
 interface N8nChatbotProps {
   settings: UserSettings;
@@ -43,7 +44,7 @@ export const N8nChatbot: React.FC<N8nChatbotProps> = ({
   isOpen,
   onToggle,
 }) => {
-  const webhookUrl = settings.n8nWebhookUrl || 'https://pavyasri.app.n8n.cloud/webhook/af471ff1-5b12-41ce-840d-184250ad59bb/chat';
+  const webhookUrl = settings.n8nWebhookUrl || DEFAULT_N8N_WEBHOOK_URL;
 
   // Calculate live financial context for the AI agent
   const now = new Date();
@@ -135,6 +136,9 @@ export const N8nChatbot: React.FC<N8nChatbotProps> = ({
     const payload = {
       action: 'sendMessage',
       chatInput: messageContent,
+      message: messageContent,
+      text: messageContent,
+      input: messageContent,
       sessionId: sessionId,
       metadata: {
         studentName: settings.studentName,
@@ -159,7 +163,7 @@ export const N8nChatbot: React.FC<N8nChatbotProps> = ({
       });
 
       if (!response.ok) {
-        throw new Error(`n8n webhook responded with status ${response.status} ${response.statusText}`);
+        throw new Error(`n8n webhook responded with HTTP ${response.status} ${response.statusText}`);
       }
 
       const contentType = response.headers.get('content-type') || '';
@@ -167,14 +171,28 @@ export const N8nChatbot: React.FC<N8nChatbotProps> = ({
 
       if (contentType.includes('application/json')) {
         const json = await response.json();
-        // Support common n8n Chat response structures
-        replyText = 
-          json.output || 
-          json.text || 
-          json.message || 
-          json.response || 
-          (Array.isArray(json) && json[0]?.output) ||
-          JSON.stringify(json);
+        if (typeof json === 'string') {
+          replyText = json;
+        } else if (Array.isArray(json)) {
+          const first = json[0];
+          replyText = 
+            first?.output || 
+            first?.text || 
+            first?.message || 
+            first?.response || 
+            first?.json?.output || 
+            first?.json?.text || 
+            (typeof first === 'string' ? first : JSON.stringify(first));
+        } else if (json && typeof json === 'object') {
+          replyText = 
+            json.output || 
+            json.text || 
+            json.message || 
+            json.response || 
+            json.data || 
+            (json.json && (json.json.output || json.json.text)) || 
+            JSON.stringify(json);
+        }
       } else {
         replyText = await response.text();
       }
@@ -198,7 +216,7 @@ export const N8nChatbot: React.FC<N8nChatbotProps> = ({
       const errorMsg: ChatMessage = {
         id: 'err_' + Date.now().toString(36),
         sender: 'system',
-        text: `⚠️ Could not reach n8n Agent (${err?.message || 'Network error'}).\n\nEnsure the n8n workflow is active, CORS is allowed, and the URL is:\n${webhookUrl}`,
+        text: `⚠️ Could not reach n8n Agent (${err?.message || 'Network error'}).\n\nWebhook URL:\n${webhookUrl}\n\nTips:\n1. Check that the n8n workflow is active.\n2. In n8n "Chat Trigger" or "Webhook" node, ensure response mode is set to "Respond with text" or JSON.\n3. Check CORS or network permissions in your n8n cloud dashboard.`,
         timestamp: Date.now(),
       };
       setMessages((prev) => [...prev, errorMsg]);

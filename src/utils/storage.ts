@@ -6,7 +6,7 @@ const SPLITS_STORAGE_KEY = 'spendwise_splits_v1';
 const GOALS_STORAGE_KEY = 'spendwise_goals_v1';
 const SUBS_STORAGE_KEY = 'spendwise_subs_v1';
 
-export const DEFAULT_N8N_WEBHOOK_URL = 'https://pavyasri.app.n8n.cloud/webhook/af471ff1-5b12-41ce-840d-184250ad59bb/chat';
+export const DEFAULT_N8N_WEBHOOK_URL = 'https://pavyasri.app.n8n.cloud/webhook/6fe3cc5b-4ed3-4184-872b-21126ab469aa/chat';
 
 export const DEFAULT_SETTINGS: UserSettings = {
   studentName: 'Alex Sharma',
@@ -189,7 +189,16 @@ export function getStoredSettings(): UserSettings {
       localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(DEFAULT_SETTINGS));
       return DEFAULT_SETTINGS;
     }
-    return { ...DEFAULT_SETTINGS, ...JSON.parse(raw) };
+    const parsed = JSON.parse(raw);
+    // If the stored webhook is the previous default or invalid, update to new default
+    if (
+      !parsed.n8nWebhookUrl ||
+      parsed.n8nWebhookUrl === 'https://pavyasri.app.n8n.cloud/webhook/af471ff1-5b12-41ce-840d-184250ad59bb/chat'
+    ) {
+      parsed.n8nWebhookUrl = DEFAULT_N8N_WEBHOOK_URL;
+      localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify({ ...DEFAULT_SETTINGS, ...parsed }));
+    }
+    return { ...DEFAULT_SETTINGS, ...parsed };
   } catch (err) {
     console.error('Failed to read settings from localStorage:', err);
     return DEFAULT_SETTINGS;

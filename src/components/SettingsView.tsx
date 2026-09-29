@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   User, 
   Wallet, 
@@ -40,6 +40,44 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [currency, setCurrency] = useState<CurrencyCode>(settings.currency);
   const [n8nWebhookUrl, setN8nWebhookUrl] = useState(settings.n8nWebhookUrl || DEFAULT_N8N_WEBHOOK_URL);
   const [savedAlert, setSavedAlert] = useState(false);
+  const [testResult, setTestResult] = useState<{ status: 'testing' | 'success' | 'error'; message: string } | null>(null);
+
+  useEffect(() => {
+    setN8nWebhookUrl(settings.n8nWebhookUrl || DEFAULT_N8N_WEBHOOK_URL);
+  }, [settings.n8nWebhookUrl]);
+
+  const handleTestWebhook = async () => {
+    const url = n8nWebhookUrl.trim() || DEFAULT_N8N_WEBHOOK_URL;
+    setTestResult({ status: 'testing', message: 'Connecting to n8n webhook...' });
+
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'sendMessage',
+          chatInput: 'Hello n8n test ping from SpendWise',
+          message: 'Hello n8n test ping from SpendWise',
+          sessionId: 'test_' + Date.now().toString(36),
+          metadata: { test: true, timestamp: Date.now() },
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status} ${response.statusText}`);
+      }
+
+      setTestResult({
+        status: 'success',
+        message: 'Successfully reached n8n agent! Status 200 OK.',
+      });
+    } catch (err: any) {
+      setTestResult({
+        status: 'error',
+        message: err?.message || 'Failed to reach n8n webhook. Check CORS and workflow status.',
+      });
+    }
+  };
 
   const handleSaveProfile = (e: React.FormEvent) => {
     e.preventDefault();
@@ -228,21 +266,53 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               placeholder="https://pavyasri.app.n8n.cloud/webhook/.../chat"
               className="flex-1 px-3.5 py-2 text-xs sm:text-sm font-mono rounded-lg border border-neutral-200 dark:border-neutral-700 bg-white dark:bg-neutral-800 text-neutral-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
             />
-            <button
-              type="button"
-              onClick={() => {
-                onUpdateSettings({
-                  ...settings,
-                  n8nWebhookUrl: n8nWebhookUrl.trim() || DEFAULT_N8N_WEBHOOK_URL,
-                });
-                setSavedAlert(true);
-                setTimeout(() => setSavedAlert(false), 2500);
-              }}
-              className="px-4 py-2 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-500 rounded-lg shadow-2xs transition-colors shrink-0"
-            >
-              Update Webhook
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleTestWebhook}
+                disabled={testResult?.status === 'testing'}
+                className="px-3.5 py-2 text-xs font-semibold text-neutral-700 dark:text-neutral-300 bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 rounded-lg border border-neutral-200 dark:border-neutral-700 transition-colors shrink-0 disabled:opacity-50"
+              >
+                {testResult?.status === 'testing' ? 'Testing...' : 'Test Ping'}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  onUpdateSettings({
+                    ...settings,
+                    n8nWebhookUrl: n8nWebhookUrl.trim() || DEFAULT_N8N_WEBHOOK_URL,
+                  });
+                  setSavedAlert(true);
+                  setTimeout(() => setSavedAlert(false), 2500);
+                }}
+                className="px-4 py-2 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-500 rounded-lg shadow-2xs transition-colors shrink-0"
+              >
+                Save Webhook
+              </button>
+            </div>
           </div>
+
+          {testResult && (
+            <div
+              className={`p-3 rounded-lg text-xs font-medium flex items-center justify-between ${
+                testResult.status === 'success'
+                  ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800'
+                  : testResult.status === 'testing'
+                  ? 'bg-blue-50 dark:bg-blue-950/60 text-blue-800 dark:text-blue-300 border border-blue-200 dark:border-blue-800'
+                  : 'bg-rose-50 dark:bg-rose-950/60 text-rose-800 dark:text-rose-300 border border-rose-200 dark:border-rose-800'
+              }`}
+            >
+              <span>{testResult.message}</span>
+              <button
+                type="button"
+                onClick={() => setTestResult(null)}
+                className="text-[10px] underline ml-2 shrink-0 opacity-80 hover:opacity-100"
+              >
+                Dismiss
+              </button>
+            </div>
+          )}
+
           <p className="text-[11px] text-neutral-500 font-mono">
             Default endpoint: {DEFAULT_N8N_WEBHOOK_URL}
           </p>
