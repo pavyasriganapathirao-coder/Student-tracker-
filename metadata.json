@@ -1,0 +1,6 @@
+{
+  "name": "SpendWise – Student Expense Tracker",
+  "description": "A modern, responsive student expense tracker for college students to record, manage, and analyze daily expenses with budget alerts and CSV export.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
